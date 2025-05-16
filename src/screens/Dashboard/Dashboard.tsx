@@ -24,6 +24,32 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { IdeaAssistant } from "../../components/IdeaAssistant";
+import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
+
+interface BrandVoice {
+  id: number;
+  name: string;
+  instructions: string;
+  assets: string[];
+  people: { name: string; username: string }[];
+  files: File[];
+}
+
+// Mock accounts
+const mockAccounts = [
+  {
+    name: 'Adam Hayes',
+    username: '@Adam_Ha_Yes',
+    avatar: '/avatar.png',
+    id: 1,
+  },
+  {
+    name: 'Andros',
+    username: '@0xAndros',
+    avatar: 'https://avatars.githubusercontent.com/u/000000?v=4',
+    id: 2,
+  },
+];
 
 export const Dashboard = (): JSX.Element => {
   const navigate = useNavigate();
@@ -39,6 +65,37 @@ export const Dashboard = (): JSX.Element => {
   const [selectedVoice, setSelectedVoice] = useState("");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const [activeAccount, setActiveAccount] = useState(mockAccounts[0]);
+  const [selectedVoiceModal, setSelectedVoiceModal] = useState<null | { id: number, name: string }>(null);
+  const [voiceInstructions, setVoiceInstructions] = useState("");
+  const [voiceAssets, setVoiceAssets] = useState<string[]>([]);
+  const [assetInput, setAssetInput] = useState("");
+  const preselectedPeople = [
+    { name: "Elon Musk", username: "@elonmusk" },
+    { name: "Sahil Bloom", username: "@SahilBloom" },
+    { name: "Lyn Alden", username: "@LynAldenContact" },
+    { name: "Alex Lieberman", username: "@businessbarista" },
+    { name: "Lenny Rachitsky", username: "@lennysan" },
+    { name: "Katelyn Bourgoin", username: "@KateBour" },
+    { name: "Julian Shapiro", username: "@Julian" },
+  ];
+  const [voicePeople, setVoicePeople] = useState<{ name: string; username: string }[]>([]);
+  const [addPersonInput, setAddPersonInput] = useState("");
+  const [showCreateVoiceModal, setShowCreateVoiceModal] = useState(false);
+  const [newVoiceName, setNewVoiceName] = useState("");
+  const [newVoiceInstructions, setNewVoiceInstructions] = useState("");
+  const [newVoiceAssets, setNewVoiceAssets] = useState<string[]>([]);
+  const [newAssetInput, setNewAssetInput] = useState("");
+  const [newVoicePeople, setNewVoicePeople] = useState<{ name: string; username: string }[]>([]);
+  const [newAddPersonInput, setNewAddPersonInput] = useState("");
+  const [voiceFiles, setVoiceFiles] = useState<File[]>([]);
+  const [newVoiceFiles, setNewVoiceFiles] = useState<File[]>([]);
+  const [brandVoices, setBrandVoices] = useState<BrandVoice[]>([
+    { id: 1, name: "Professional", instructions: "Use formal language. Avoid slang.", assets: ["https://hbr.org/article/professional-writing"], people: [{ name: "Lyn Alden", username: "@LynAldenContact" }], files: [] },
+    { id: 2, name: "Casual", instructions: "Keep it light and conversational.", assets: ["https://medium.com/casual-style-guide"], people: [{ name: "Sahil Bloom", username: "@SahilBloom" }], files: [] },
+    { id: 3, name: "Friendly", instructions: "Be supportive and positive.", assets: ["https://friendlycopy.com/guide"], people: [{ name: "Katelyn Bourgoin", username: "@KateBour" }], files: [] },
+    { id: 4, name: "Humorous", instructions: "Add wit and playful jokes.", assets: ["https://copyhackers.com/humor"], people: [{ name: "Julian Shapiro", username: "@Julian" }], files: [] },
+  ]);
 
   useEffect(() => {
     if (location.state?.showSuccess) {
@@ -66,19 +123,12 @@ export const Dashboard = (): JSX.Element => {
     }
   }, [activeTab]);
 
-  // Brand voices data
-  const brandVoices = [
-    { id: 1, name: "Professional" },
-    { id: 2, name: "Casual" },
-    { id: 3, name: "Friendly" },
-    { id: 4, name: "Humorous" },
-  ];
-
   // Navigation menu items data
   const navItems = [
     { name: "Create Content", active: true },
     { name: "Trending", active: false },
     { name: "Ask AI", active: false },
+    { name: "Brand Voice", active: false },
   ];
 
   // Tab items data
@@ -183,17 +233,18 @@ export const Dashboard = (): JSX.Element => {
             </div>
             <nav className="flex-1 px-3">
               {navItems.map((item) => (
-                <a
+                <button
                   key={item.name}
-                  href="#"
-                  className={`flex items-center px-4 py-2.5 my-1 text-sm rounded-lg transition-colors ${
-                    item.active
+                  onClick={() => setActiveTab(item.name.toLowerCase())}
+                  className={`w-full text-left flex items-center px-4 py-2.5 my-1 text-sm rounded-lg transition-colors ${
+                    activeTab === item.name.toLowerCase()
                       ? "text-[#4ade80] bg-[#4ade80]/10"
                       : "text-[#e4e4e7] hover:bg-[#2e2f33]"
                   }`}
+                  type="button"
                 >
                   {item.name}
-                </a>
+                </button>
               ))}
             </nav>
             <div className="p-4 m-3 border border-[#2e2f33] rounded-lg">
@@ -214,32 +265,32 @@ export const Dashboard = (): JSX.Element => {
         {/* Main Content */}
         <div className="pl-[240px] pr-[400px] min-h-screen">
           <div className="p-6">
-            <div className="flex items-center justify-between mb-8">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-background border-b border-border w-full justify-start rounded-none p-0 h-auto">
-                  {tabItems.map((tab, index) => (
-                    <TabsTrigger
-                      key={tab.name}
-                      value={tab.name.toLowerCase()}
-                      ref={(el) => (tabRefs.current[index] = el)}
-                      className={`px-6 py-3 text-base font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary ${
-                        activeTab === tab.name.toLowerCase()
-                          ? "text-primary"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {tab.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-                <Button 
-                onClick={() => setIsDialogOpen(true)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
-                >
+            {/* Top Tabs and Create New button */}
+            {activeTab !== "brand voice" && (
+              <div className="flex items-center justify-between mb-8">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="bg-background border-b border-border w-full justify-start rounded-none p-0 h-auto">
+                    {tabItems.map((tab, index) => (
+                      <TabsTrigger
+                        key={tab.name}
+                        value={tab.name.toLowerCase()}
+                        ref={(el) => (tabRefs.current[index] = el)}
+                        className={`px-6 py-3 text-base font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary ${
+                          activeTab === tab.name.toLowerCase()
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                <Button onClick={() => setIsDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 px-6">
                   Create New
                 </Button>
-                  </div>
+              </div>
+            )}
 
             {/* Content based on active tab */}
             {activeTab === "ideas" && (
@@ -281,8 +332,8 @@ export const Dashboard = (): JSX.Element => {
                     </CardContent>
                   </Card>
                 ))}
-                  </div>
-                )}
+              </div>
+            )}
 
             {/* Drafts Tab */}
             {activeTab === "drafts" && (
@@ -347,23 +398,23 @@ export const Dashboard = (): JSX.Element => {
                         + Queue
                       </Button>
                     </div>
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
                         <Avatar>
                           <AvatarImage src="/avatar.png" />
                           <AvatarFallback>AH</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
+                        </Avatar>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">Draft</span>
                             <span className="text-muted-foreground">·</span>
                             <span className="text-muted-foreground">Last edited {draft.lastEdited}</span>
-                            </div>
-                          <p className="mt-1 text-foreground whitespace-pre-line">{draft.content}</p>
                           </div>
+                          <p className="mt-1 text-foreground whitespace-pre-line">{draft.content}</p>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
@@ -464,7 +515,7 @@ export const Dashboard = (): JSX.Element => {
                     <div className="flex items-baseline gap-2">
                       <h3 className="font-medium">Tomorrow</h3>
                       <span className="text-muted-foreground">April 30</span>
-                            </div>
+                    </div>
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
                         <div className="w-20 text-sm text-muted-foreground">11:10 AM</div>
@@ -481,13 +532,13 @@ export const Dashboard = (): JSX.Element => {
                       <div className="flex items-center gap-4">
                         <div className="w-20 text-sm text-muted-foreground">2:54 PM</div>
                         <div className="flex-1">
-                        <Button
-                          variant="outline"
+                          <Button
+                            variant="outline"
                             className="w-full justify-start text-muted-foreground hover:text-foreground border-dashed"
                             onClick={() => setIsDialogOpen(true)}
-                        >
+                          >
                             + New
-                        </Button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -510,9 +561,9 @@ export const Dashboard = (): JSX.Element => {
                                   <Avatar>
                                     <AvatarImage src="/avatar.png" />
                                     <AvatarFallback>AH</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
                                       <span className="font-medium text-foreground">Scheduled</span>
                                       <span className="text-muted-foreground">·</span>
                                       <span className="text-primary">11:10 AM</span>
@@ -541,7 +592,7 @@ export const Dashboard = (): JSX.Element => {
                     <div className="flex items-baseline gap-2">
                       <h3 className="font-medium">Friday</h3>
                       <span className="text-muted-foreground">May 2</span>
-              </div>
+                    </div>
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
                         <div className="w-20 text-sm text-muted-foreground">11:10 AM</div>
@@ -557,7 +608,7 @@ export const Dashboard = (): JSX.Element => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="w-20 text-sm text-muted-foreground">2:54 PM</div>
-                          <div className="flex-1">
+                        <div className="flex-1">
                           <Button
                             variant="outline"
                             className="w-full justify-start text-muted-foreground hover:text-foreground border-dashed"
@@ -566,10 +617,10 @@ export const Dashboard = (): JSX.Element => {
                             + New
                           </Button>
                         </div>
-                            </div>
-                            </div>
-                          </div>
-                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -577,8 +628,8 @@ export const Dashboard = (): JSX.Element => {
             {activeTab === "posted" && (
               <div className="space-y-4">
                 {tweets.map((tweet) => (
-                  <Card 
-                    key={tweet.id} 
+                  <Card
+                    key={tweet.id}
                     className="bg-muted border-border hover:bg-muted/60 cursor-pointer transition-colors"
                     onClick={() => handlePostClick(tweet.id)}
                   >
@@ -636,6 +687,393 @@ export const Dashboard = (): JSX.Element => {
               </div>
             )}
 
+            {/* Brand Voice Tab */}
+            {activeTab === "brand voice" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-2xl font-bold text-[#4ade80]">Brand Voice</div>
+                  <Button className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold px-6 py-2 rounded-lg" onClick={() => setShowCreateVoiceModal(true)}>
+                    + Create New Voice
+                  </Button>
+                </div>
+                <div className="flex flex-col gap-4 mt-6">
+                  {brandVoices.map((voice) => (
+                    <button
+                      key={voice.id}
+                      className="bg-[#18181b] border border-[#2e2f33] rounded-lg p-6 flex flex-col items-start hover:border-[#4ade80] transition-colors w-full"
+                      onClick={() => {
+                        setSelectedVoiceModal(voice);
+                        setVoiceInstructions(voice.instructions || "");
+                        setVoiceAssets(voice.assets || []);
+                        setVoicePeople(voice.people || []);
+                        setVoiceFiles(voice.files || []);
+                      }}
+                    >
+                      <div className="text-lg font-semibold text-[#e4e4e7] mb-1">{voice.name}</div>
+                      {voice.instructions && (
+                        <div className="text-[#e4e4e7] text-base whitespace-pre-line mt-2">{voice.instructions}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {/* Create New Voice Modal */}
+                <Dialog open={showCreateVoiceModal} onOpenChange={setShowCreateVoiceModal}>
+                  <DialogContent className="bg-[#18181b] border-[#4ade80] max-w-2xl mx-auto max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold text-[#4ade80]">Create New Voice</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Voice Name</label>
+                      <input
+                        type="text"
+                        value={newVoiceName}
+                        onChange={e => setNewVoiceName(e.target.value)}
+                        placeholder="e.g. Bold, Playful, Technical..."
+                        className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Additional Instructions</label>
+                      <textarea
+                        value={newVoiceInstructions}
+                        onChange={e => setNewVoiceInstructions(e.target.value)}
+                        placeholder="e.g. Always use active voice, avoid jargon..."
+                        rows={5}
+                        className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80] resize-vertical"
+                      />
+                    </div>
+                    <div className="mt-6">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Enter asset (link, article, etc.)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newAssetInput}
+                          onChange={e => setNewAssetInput(e.target.value)}
+                          placeholder="Paste a link to train the AI..."
+                          className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                        />
+                        <Button
+                          className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold px-4"
+                          onClick={() => {
+                            if (newAssetInput.trim()) {
+                              setNewVoiceAssets(prev => [...prev, newAssetInput.trim()]);
+                              setNewAssetInput("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {newVoiceAssets.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {newVoiceAssets.map((asset, idx) => (
+                            <li key={idx} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span className="truncate max-w-[200px]">{asset}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setNewVoiceAssets(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {/* File upload for create modal */}
+                    <div className="mt-6">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Upload files (PDF, DOCX, TXT, etc.)</label>
+                      <input
+                        type="file"
+                        multiple
+                        className="block w-full text-[#e4e4e7] bg-[#101010] border border-[#2e2f33] rounded-md p-2"
+                        onChange={e => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setNewVoiceFiles(prev => [
+                              ...prev,
+                              ...Array.from(e.target.files ?? [])
+                            ]);
+                          }
+                        }}
+                      />
+                      {newVoiceFiles.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {newVoiceFiles.map((file, idx) => (
+                            <li key={file.name + idx} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span className="truncate max-w-[200px]">{file.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setNewVoiceFiles(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="mt-6">
+                      <div className="text-[#e4e4e7] font-medium mb-2">People</div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {preselectedPeople.map((person) => (
+                          <Button
+                            key={person.username}
+                            className={`px-3 py-1 rounded-full border border-[#2e2f33] text-[#e4e4e7] bg-[#101010] hover:bg-[#232323] text-sm ${voicePeople.some(p => p.username === person.username) ? 'bg-[#4ade80] text-black border-[#4ade80]' : ''}`}
+                            onClick={() => {
+                              if (!voicePeople.some(p => p.username === person.username)) {
+                                setVoicePeople(prev => [...prev, person]);
+                              }
+                            }}
+                          >
+                            {person.name} <span className="ml-2 text-xs text-[#4ade80]">{person.username}</span>
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={addPersonInput}
+                          onChange={e => setAddPersonInput(e.target.value)}
+                          placeholder="Add X username (e.g. @naval)"
+                          className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                        />
+                        <Button
+                          className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold px-4"
+                          onClick={() => {
+                            const username = addPersonInput.trim();
+                            if (username && !voicePeople.some(p => p.username === username)) {
+                              setVoicePeople(prev => [...prev, { name: username.replace('@', ''), username }]);
+                              setAddPersonInput("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {voicePeople.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {voicePeople.map((person, idx) => (
+                            <li key={person.username} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span>{person.name} <span className="ml-2 text-xs text-[#4ade80]">{person.username}</span></span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setVoicePeople(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-6">
+                      <Button className="bg-black border border-white text-white hover:bg-[#18181b] flex-1" onClick={() => setShowCreateVoiceModal(false)}>
+                        Close
+                      </Button>
+                      <Button
+                        className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold flex-1"
+                        onClick={() => {
+                          const newId = brandVoices.length > 0 ? Math.max(...brandVoices.map(v => v.id)) + 1 : 1;
+                          const newVoiceToAdd: BrandVoice = {
+                            id: newId,
+                            name: newVoiceName,
+                            instructions: newVoiceInstructions,
+                            assets: newVoiceAssets,
+                            people: newVoicePeople,
+                            files: newVoiceFiles,
+                          };
+                          setBrandVoices(prev => [...prev, newVoiceToAdd]);
+                          setShowCreateVoiceModal(false);
+                          // Reset form fields
+                          setNewVoiceName("");
+                          setNewVoiceInstructions("");
+                          setNewVoiceAssets([]);
+                          setNewAssetInput("");
+                          setNewVoicePeople([]);
+                          setNewAddPersonInput("");
+                          setNewVoiceFiles([]);
+                        }}
+                      >
+                        Create Voice
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Existing Voice Modal */}
+                <Dialog open={!!selectedVoiceModal} onOpenChange={() => setSelectedVoiceModal(null)}>
+                  <DialogContent className="bg-[#18181b] border-[#4ade80] max-w-2xl mx-auto max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold text-[#4ade80]">Edit Voice: {selectedVoiceModal?.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Additional Instructions</label>
+                      <textarea
+                        value={voiceInstructions}
+                        onChange={e => setVoiceInstructions(e.target.value)}
+                        placeholder="e.g. Always use active voice, avoid jargon..."
+                        rows={5}
+                        className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80] resize-vertical"
+                      />
+                    </div>
+                     <div className="mt-6">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Enter asset (link, article, etc.)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={assetInput}
+                          onChange={e => setAssetInput(e.target.value)}
+                          placeholder="Paste a link to train the AI..."
+                          className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                        />
+                        <Button
+                          className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold px-4"
+                          onClick={() => {
+                            if (assetInput.trim()) {
+                              setVoiceAssets(prev => [...prev, assetInput.trim()]);
+                              setAssetInput("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {voiceAssets.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {voiceAssets.map((asset, idx) => (
+                            <li key={idx} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span className="truncate max-w-[200px]">{asset}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setVoiceAssets(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                     {/* File upload for edit modal */}
+                    <div className="mt-6">
+                      <label className="block text-[#e4e4e7] mb-2 font-medium">Upload files (PDF, DOCX, TXT, etc.)</label>
+                      <input
+                        type="file"
+                        multiple
+                        className="block w-full text-[#e4e4e7] bg-[#101010] border border-[#2e2f33] rounded-md p-2"
+                        onChange={e => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setVoiceFiles(prev => [
+                              ...prev,
+                              ...Array.from(e.target.files ?? [])
+                            ]);
+                          }
+                        }}
+                      />
+                      {voiceFiles.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {voiceFiles.map((file, idx) => (
+                            <li key={file.name + idx} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span className="truncate max-w-[200px]">{file.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setVoiceFiles(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="mt-6">
+                      <div className="text-[#e4e4e7] font-medium mb-2">People</div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {preselectedPeople.map((person) => (
+                          <Button
+                            key={person.username}
+                            className={`px-3 py-1 rounded-full border border-[#2e2f33] text-[#e4e4e7] bg-[#101010] hover:bg-[#232323] text-sm ${voicePeople.some(p => p.username === person.username) ? 'bg-[#4ade80] text-black border-[#4ade80]' : ''}`}
+                            onClick={() => {
+                              if (!voicePeople.some(p => p.username === person.username)) {
+                                setVoicePeople(prev => [...prev, person]);
+                              }
+                            }}
+                          >
+                            {person.name} <span className="ml-2 text-xs text-[#4ade80]">{person.username}</span>
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={addPersonInput}
+                          onChange={e => setAddPersonInput(e.target.value)}
+                          placeholder="Add X username (e.g. @naval)"
+                          className="w-full p-2 rounded-md bg-[#101010] border border-[#2e2f33] text-[#e4e4e7] focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                        />
+                        <Button
+                          className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold px-4"
+                          onClick={() => {
+                            const username = addPersonInput.trim();
+                            if (username && !voicePeople.some(p => p.username === username)) {
+                              setVoicePeople(prev => [...prev, { name: username.replace('@', ''), username }]);
+                              setAddPersonInput("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {voicePeople.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {voicePeople.map((person, idx) => (
+                            <li key={person.username} className="flex items-center justify-between bg-[#101010] border border-[#2e2f33] rounded px-3 py-2 text-[#e4e4e7] text-sm">
+                              <span>{person.name} <span className="ml-2 text-xs text-[#4ade80]">{person.username}</span></span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 text-red-400 hover:text-red-600"
+                                onClick={() => setVoicePeople(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ✕
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-6">
+                      <Button className="bg-black border border-white text-white hover:bg-[#18181b] flex-1" onClick={() => setSelectedVoiceModal(null)}>
+                        Close
+                      </Button>
+                      <Button className="bg-[#4ade80] text-black hover:bg-[#22c55e] font-semibold flex-1" onClick={() => {
+                        if (selectedVoiceModal) {
+                          setBrandVoices(prev => prev.map(v =>
+                            v.id === selectedVoiceModal.id
+                              ? { ...v, instructions: voiceInstructions, assets: voiceAssets, people: voicePeople, files: voiceFiles }
+                              : v
+                          ));
+                        }
+                        setSelectedVoiceModal(null);
+                      }}>
+                        Save
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+
             {/* Success notification for drafts */}
             {showDraftSuccess && (
               <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg">
@@ -663,7 +1101,7 @@ export const Dashboard = (): JSX.Element => {
                       <SelectValue placeholder="Select a voice" />
                     </SelectTrigger>
                     <SelectContent className="bg-[#1a1b1e] border-[#2e2f33]">
-                      {brandVoices.map((voice) => (
+                      {brandVoices.map((voice: BrandVoice) => (
                         <SelectItem 
                           key={voice.id} 
                           value={voice.name.toLowerCase()}
@@ -687,7 +1125,7 @@ export const Dashboard = (): JSX.Element => {
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                       <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
                       <circle cx="9" cy="9" r="2"/>
-                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 1-2.828 0L6 21"/>
                     </svg>
                     Add Media
                   </Button>
@@ -795,6 +1233,51 @@ export const Dashboard = (): JSX.Element => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Bottom left account popover */}
+        <div className="fixed bottom-4 left-4 z-30">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="bg-black border border-[#2e2f33] rounded-xl px-4 py-3 flex items-center gap-3 min-w-[180px] hover:bg-[#18181b] transition-colors">
+                <Avatar>
+                  <AvatarImage src={activeAccount.avatar} />
+                  <AvatarFallback>{activeAccount.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium text-[#e4e4e7]">{activeAccount.name}</span>
+                  <span className="text-xs text-[#71717a]">{activeAccount.username}</span>
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-0">
+              <div className="py-2">
+                {mockAccounts.map(account => (
+                  <button
+                    key={account.id}
+                    className={`w-full flex items-center gap-3 px-4 py-2 hover:bg-[#18181b] transition-colors ${account.id === activeAccount.id ? 'bg-[#18181b]' : ''}`}
+                    onClick={() => setActiveAccount(account)}
+                  >
+                    <Avatar>
+                      <AvatarImage src={account.avatar} />
+                      <AvatarFallback>{account.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-medium text-[#e4e4e7]">{account.name}</span>
+                      <span className="text-xs text-[#71717a]">{account.username}</span>
+                    </div>
+                    {account.id === activeAccount.id && (
+                      <span className="ml-auto text-xs text-green-400 font-semibold">Active</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-[#2e2f33] px-4 py-2 flex flex-col gap-2">
+                <button className="text-left text-sm text-[#4ade80] hover:underline">+ Add account</button>
+                <button className="text-left text-sm text-[#e4e4e7] hover:underline">Manage accounts</button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   );

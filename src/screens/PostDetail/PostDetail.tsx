@@ -6,6 +6,8 @@ import Image from '@tiptap/extension-image';
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
+import { MatrixRain } from '../../components/MatrixRain';
+import { Dialog, DialogContent } from '../../components/ui/dialog';
 
 export const PostDetail = (): JSX.Element => {
   const { id } = useParams();
@@ -22,6 +24,9 @@ export const PostDetail = (): JSX.Element => {
   const [selectedText, setSelectedText] = useState<string>("");
   const [scheduledAt, setScheduledAt] = useState("April 24 @ 7 AM");
   const [showScheduler, setShowScheduler] = useState(false);
+  const [showMatrixRain, setShowMatrixRain] = useState(false);
+  const [showCongratsModal, setShowCongratsModal] = useState(false);
+  const [postUrl, setPostUrl] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -104,6 +109,20 @@ export const PostDetail = (): JSX.Element => {
     });
   };
 
+  const handlePublishNow = () => {
+    setShowMatrixRain(true);
+    setTimeout(() => {
+      setShowMatrixRain(false);
+      setShowCongratsModal(true);
+      setPostUrl(`https://twitter.com/adam_ha_yes/status/${Date.now()}`);
+    }, 2500);
+  };
+
+  const handleCloseCongrats = () => {
+    setShowCongratsModal(false);
+    navigate('/', { state: { activeTab: 'ideas' } });
+  };
+
   const tweets = [
     {
       id: 2,
@@ -140,6 +159,7 @@ export const PostDetail = (): JSX.Element => {
 
   return (
     <div className="bg-background flex flex-row justify-center w-full">
+      <MatrixRain show={showMatrixRain} />
       <div className="bg-background overflow-hidden w-full max-w-[1602px] relative min-h-screen">
         {/* Main Content */}
         <div className="flex justify-center">
@@ -211,6 +231,7 @@ export const PostDetail = (): JSX.Element => {
                 <Button 
                   variant="outline"
                   className="hover:bg-primary hover:text-primary-foreground"
+                  onClick={handlePublishNow}
                 >
                   Publish Now
                 </Button>
@@ -296,6 +317,23 @@ export const PostDetail = (): JSX.Element => {
           </div>
         </div>
       </div>
+      <Dialog open={showCongratsModal} onOpenChange={setShowCongratsModal}>
+        <DialogContent className="bg-[#18181b] border-[#4ade80] text-center max-w-md mx-auto">
+          <div className="text-2xl font-bold text-[#4ade80] mb-2">You're live!</div>
+          <div className="text-[#e4e4e7] mb-4">Your post is up and running.</div>
+          <a
+            href={postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-4 py-2 bg-[#4ade80] text-black rounded-lg font-semibold hover:bg-[#22c55e] transition-colors mb-4"
+          >
+            Check it out
+          </a>
+          <Button className="w-full mt-2 bg-black border border-white text-white hover:bg-[#18181b] hover:text-white" onClick={handleCloseCongrats}>
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
